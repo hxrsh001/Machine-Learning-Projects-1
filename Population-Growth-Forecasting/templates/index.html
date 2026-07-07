@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Population Prediction System</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="overlay"></div>
+
+    <div class="container-fluid main-container">
+        <!-- Header -->
+        <div class="header-section">
+            <div class="header-content">
+                <h1>🌍 Population Prediction System</h1>
+                <p>Advanced Analytics & Visualization Dashboard</p>
+            </div>
+        </div>
+
+        <div class="dashboard-wrapper">
+            <!-- Left Panel - Search & Input -->
+            <div class="search-panel">
+                <div class="search-card">
+                    <h2>Search Country</h2>
+                    
+                    <form method="POST">
+                        <div class="form-group">
+                            <label class="form-label">Select Country</label>
+                            <select name="country" class="form-select custom-input" required>
+                                <option value="">-- Choose a Country --</option>
+                                {% for country in countries %}
+                                <option value="{{ country }}" {% if country_name == country %}selected{% endif %}>
+                                    {{ country }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Prediction Year</label>
+                            <input type="number" name="year" class="form-control custom-input" 
+                                   placeholder="Example: 2035" min="2023" max="2100" required
+                                   value="{{ year if year else '' }}">
+                        </div>
+
+                        <button type="submit" class="predict-btn">📊 Predict Population</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Panel - Results & Visualizations -->
+            <div class="results-panel">
+                {% if prediction %}
+                <div class="results-wrapper">
+
+                    <!-- Country Header Info -->
+                    <div class="country-header">
+                        <div class="country-info">
+                            <h2>{{ country_name }}</h2>
+                            {% if country_details %}
+                            <div class="location-info">
+                                <span class="badge badge-continent">📍 {{ country_details.continent }}</span>
+                                <span class="badge badge-capital">🏛️ {{ country_details.capital }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- KPI Cards -->
+                    <div class="kpi-grid">
+                        {% if kpis %}
+                        <div class="kpi-card">
+                            <div class="kpi-icon">👥</div>
+                            <div class="kpi-content">
+                                <h4>Current Population</h4>
+                                <p class="kpi-value">{{ "{:,}".format(kpis.current_population) }}</p>
+                                <span class="kpi-subtitle">2022 Data</span>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div class="kpi-icon">📈</div>
+                            <div class="kpi-content">
+                                <h4>Growth Rate (CAGR)</h4>
+                                <p class="kpi-value">{{ kpis.growth_rate }}%</p>
+                                <span class="kpi-subtitle">1970-2022</span>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div class="kpi-icon">⚡</div>
+                            <div class="kpi-content">
+                                <h4>YoY Growth</h4>
+                                <p class="kpi-value {% if kpis.yoy_growth > 0 %}positive{% else %}negative{% endif %}">
+                                    {{ kpis.yoy_growth }}%
+                                </p>
+                                <span class="kpi-subtitle">2020-2022</span>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div class="kpi-icon">🗺️</div>
+                            <div class="kpi-content">
+                                <h4>Population Density</h4>
+                                <p class="kpi-value">{{ "%.1f"|format(kpis.density) }}</p>
+                                <span class="kpi-subtitle">per km²</span>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div class="kpi-icon">📐</div>
+                            <div class="kpi-content">
+                                <h4>Total Area</h4>
+                                <p class="kpi-value">{{ "{:,}".format(kpis.area) }}</p>
+                                <span class="kpi-subtitle">km²</span>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div class="kpi-icon">🌐</div>
+                            <div class="kpi-content">
+                                <h4>World Share</h4>
+                                <p class="kpi-value">{{ "%.2f"|format(kpis.world_percentage) }}%</p>
+                                <span class="kpi-subtitle">of 8B people</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Charts Section -->
+                    <div class="charts-section">
+                        <div class="chart-container">
+                            <h3>📊 Historical Population Trend</h3>
+                            <canvas id="populationChart"></canvas>
+                        </div>
+
+                        <div class="chart-container">
+                            <h3>🔮 Population Forecast</h3>
+                            <canvas id="forecastChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Prediction Box -->
+                    <div class="prediction-box">
+                        <div class="prediction-content">
+                            <h3>🎯 Prediction Result</h3>
+                            <div class="prediction-details">
+                                <div class="pred-item">
+                                    <span class="pred-label">Prediction Year</span>
+                                    <span class="pred-value">{{ year }}</span>
+                                </div>
+                                <div class="pred-item">
+                                    <span class="pred-label">Predicted Population</span>
+                                    <span class="pred-value main">{{ "{:,}".format(prediction) }}</span>
+                                </div>
+                                {% if kpis %}
+                                <div class="pred-item">
+                                    <span class="pred-label">Growth from 2022</span>
+                                    <span class="pred-value">
+                                        {{ "{:+,}".format(prediction - kpis.current_population) }}
+                                        ({% if prediction > kpis.current_population %}📈{% else %}📉{% endif %}
+                                        {{ "%.1f"|format(((prediction - kpis.current_population) / kpis.current_population * 100)) }}%)
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Historical Data Table -->
+                    <div class="history-section">
+                        <h3>📅 Historical Population Data (1970-2022)</h3>
+                        <div class="history-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Year</th>
+                                        <th>Population</th>
+                                        <th>Change</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% set prev_pop = 0 %}
+                                    {% for hist_year, hist_pop in population_history.items() %}
+                                    <tr>
+                                        <td>{{ hist_year }}</td>
+                                        <td>{{ "{:,}".format(hist_pop) }}</td>
+                                        <td>
+                                            {% if prev_pop == 0 %}
+                                                <span class="neutral">-</span>
+                                            {% else %}
+                                                {% set change = hist_pop - prev_pop %}
+                                                {% set change_pct = (change / prev_pop * 100) %}
+                                                <span class="{% if change > 0 %}positive{% else %}negative{% endif %}">
+                                                    {{ "{:+,}".format(change) }} ({{ "{:+.2f}"|format(change_pct) }}%)
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% set prev_pop = hist_pop %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Insights -->
+                    <div class="insights-section">
+                        <h3>💡 Key Insights</h3>
+                        <div class="insights-grid">
+                            {% if kpis.growth_rate > 2 %}
+                            <div class="insight-card">
+                                <span class="insight-icon">🚀</span>
+                                <p>High growth rate detected. {{ country_name }} is experiencing rapid population growth.</p>
+                            </div>
+                            {% elif kpis.growth_rate > 0 %}
+                            <div class="insight-card">
+                                <span class="insight-icon">📊</span>
+                                <p>Moderate growth rate. {{ country_name }} population is steadily increasing.</p>
+                            </div>
+                            {% else %}
+                            <div class="insight-card">
+                                <span class="insight-icon">📉</span>
+                                <p>Declining population. {{ country_name }} is experiencing demographic challenges.</p>
+                            </div>
+                            {% endif %}
+
+                            {% if kpis.density > 300 %}
+                            <div class="insight-card">
+                                <span class="insight-icon">🏙️</span>
+                                <p>High population density. {{ country_name }} is densely populated with urbanization challenges.</p>
+                            </div>
+                            {% elif kpis.density > 100 %}
+                            <div class="insight-card">
+                                <span class="insight-icon">🏢</span>
+                                <p>Moderate density. {{ country_name }} has a balanced population distribution.</p>
+                            </div>
+                            {% else %}
+                            <div class="insight-card">
+                                <span class="insight-icon">🌾</span>
+                                <p>Low population density. {{ country_name }} has significant uninhabited areas.</p>
+                            </div>
+                            {% endif %}
+
+                            <div class="insight-card">
+                                <span class="insight-icon">🌍</span>
+                                <p>{{ country_name }} represents {{ "%.2f"|format(kpis.world_percentage) }}% of the world population.</p>
+                            </div>
+
+                            {% if prediction > kpis.current_population %}
+                            <div class="insight-card">
+                                <span class="insight-icon">📈</span>
+                                <p>Population projected to reach {{ "{:,}".format(prediction) }} by {{ year }}.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Charts Script -->
+                <script>
+                    // Historical Population Chart
+                    const populationCtx = document.getElementById('populationChart').getContext('2d');
+                    const populationChart = new Chart(populationCtx, {
+                        type: 'line',
+                        data: {
+                            labels: {{ chart_data.years | tojson }},
+                            datasets: [{
+                                label: 'Population',
+                                data: {{ chart_data.populations | tojson }},
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 5,
+                                pointBackgroundColor: '#3b82f6',
+                                pointBorderColor: 'white',
+                                pointBorderWidth: 2,
+                                pointHoverRadius: 7
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    labels: {
+                                        color: 'white',
+                                        font: {
+                                            size: 14,
+                                            weight: 'bold'
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    ticks: {
+                                        color: '#cbd5e1',
+                                        callback: function(value) {
+                                            return (value / 1000000).toFixed(1) + 'M';
+                                        }
+                                    },
+                                    grid: {
+                                        color: 'rgba(255, 255, 255, 0.1)'
+                                    }
+                                },
+                                x: {
+                                    ticks: {
+                                        color: '#cbd5e1'
+                                    },
+                                    grid: {
+                                        color: 'rgba(255, 255, 255, 0.1)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    // Forecast Chart
+                    const forecastCtx = document.getElementById('forecastChart').getContext('2d');
+                    const historicalYears = {{ chart_data.years | tojson }};
+                    const historicalPops = {{ chart_data.populations | tojson }};
+                    const currentYear = parseInt(historicalYears[historicalYears.length - 1]);
+                    const currentPop = historicalPops[historicalPops.length - 1];
+                    const predictionYear = {{ year }};
+                    const predictionPop = {{ prediction }};
+
+                    const forecastChart = new Chart(forecastCtx, {
+                        type: 'line',
+                        data: {
+                            labels: historicalYears.concat([predictionYear]),
+                            datasets: [
+                                {
+                                    label: 'Historical Data',
+                                    data: historicalPops.concat([null]),
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    borderWidth: 3,
+                                    fill: true,
+                                    tension: 0.4,
+                                    pointRadius: 5,
+                                    pointBackgroundColor: '#3b82f6',
+                                    pointBorderColor: 'white',
+                                    pointBorderWidth: 2
+                                },
+                                {
+                                    label: 'Prediction',
+                                    data: Array(historicalPops.length - 1).fill(null).concat([currentPop, predictionPop]),
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    borderWidth: 3,
+                                    borderDash: [5, 5],
+                                    fill: true,
+                                    tension: 0.4,
+                                    pointRadius: 5,
+                                    pointBackgroundColor: '#10b981',
+                                    pointBorderColor: 'white',
+                                    pointBorderWidth: 2
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    labels: {
+                                        color: 'white',
+                                        font: {
+                                            size: 14,
+                                            weight: 'bold'
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    ticks: {
+                                        color: '#cbd5e1',
+                                        callback: function(value) {
+                                            return (value / 1000000).toFixed(1) + 'M';
+                                        }
+                                    },
+                                    grid: {
+                                        color: 'rgba(255, 255, 255, 0.1)'
+                                    }
+                                },
+                                x: {
+                                    ticks: {
+                                        color: '#cbd5e1'
+                                    },
+                                    grid: {
+                                        color: 'rgba(255, 255, 255, 0.1)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                </script>
+                {% else %}
+                <!-- No Results Message -->
+                <div class="no-results">
+                    <div class="no-results-icon">🌍</div>
+                    <h2>Welcome to Population Analytics</h2>
+                    <p>Select a country and enter a year to get detailed population predictions and analytics</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
